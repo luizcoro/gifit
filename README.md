@@ -7,11 +7,16 @@ Example:
 
 Arguments:
 
+
 -n number = screenshot rate (default 10/s)
+
 -w = choose a specific window
+
 -s = select a specific area
 
 Environment variables:
 
+
 GIFIT_TMP_DIR = temporary folder to convert screenshots into gif
+
 GIFIT_GIF_DIR = folder to save generated gif (default current directory)
