@@ -67,7 +67,7 @@ do_shots(){
     DELAYS[$count]=$(($current_date-$last_date))
     last_date=$current_date
 
-    echo -ne "Press [q] to stop recording\ttotal shots = $count\r"
+    echo -ne "Press [q] to stop recording\ttotal shots = $(($count+1))\r"
 
     sleep $SLEEP_TIME
     let count+=1
@@ -84,6 +84,27 @@ scale_shots(){
     mogrify -scale "$(echo "$SCALE_FACTOR*100"| bc)%" $PNG_DIR/*
 }
 
+get_index_from_file()
+{
+    file=$1
+    filename=${file##*/}
+    index=$((10#${filename%.*}))
+
+    echo $index
+}
+
+remove_shots()
+{
+    files=$(yad  --title="Select a file to remove" --add-preview --multiple --image-filter --splash --filename="$PNG_DIR/" --file-selection)
+
+    IFS='|' read -ra IMGS <<< "$files"
+
+    for img in "${IMGS[@]}"; do
+        DELAYS[$(get_index_from_file $img)]=-1
+        rm $img
+    done
+}
+
 shots_to_gif(){
   _CONVERT="convert -limit memory 2GiB -limit map 4GiB "
 
@@ -92,18 +113,19 @@ shots_to_gif(){
   fi
 
 
-  count=0
+  for f in $PNG_DIR/*; do
+      index=$(get_index_from_file $f)
 
-  for f in $PNG_DIR/*
-    do
-      delay=$(echo "${DELAYS[$count]}/$SPEED_FACTOR" | bc -l)
-      _CONVERT="${_CONVERT} -delay $delay $f "
-      (( count++ ))
-    done
+      if [[ ${DELAYS[$index]} -ne -1 ]]; then
+        delay=$(echo "${DELAYS[$index]}/$SPEED_FACTOR" | bc -l)
+        _CONVERT="${_CONVERT} -delay $delay $f "
+      fi
+  done
 
   new_gif=$PNG_DIR/out.gif
-  _CONVERT="${_CONVERT} -loop 0 -fuzz 2% -layers Optimize -colors 32 $new_gif"
+  _CONVERT="${_CONVERT} -loop 0 -fuzz 2% -layers Optimize  $new_gif"
   echo "Making gif..."
+
   eval $_CONVERT
 
   if [ "$?" -ne "0" ]; then
@@ -113,10 +135,12 @@ shots_to_gif(){
 
 
   if [ -n "$OPTIONAL_GIF_DIR" ]; then
-    gifsicle --colors 32 -O3 $new_gif -o "$OPTIONAL_GIF_DIR/$(date +%F-%T).gif"
+    optimized_gif="$OPTIONAL_GIF_DIR/$(date +%F-%T).gif"
   else
-    gifsicle --colors 32 -O3 $new_gif -o "$(date +%F-%T).gif"
+    optimized_gif="$(date +%F-%T).gif"
   fi
+
+  gifsicle -O2 $new_gif -o $optimized_gif
 
   echo "Gif OK!"
 }
@@ -124,6 +148,13 @@ shots_to_gif(){
 get_window_geometry
 paplay ./race-countdown.ogg
 do_shots $WINDOW_GEOMETRY
+
+echo "Do you wanna remove some shots? (Y/n)"
+read remove
+
+if [ "$remove" != "n" ]; then
+    remove_shots
+fi
 
 if [ "$SCALE_FACTOR" != "1" ]; then
     scale_shots
