@@ -26,3 +26,5 @@ GIFIT_GIF_DIR = folder to save generated gif (default current directory)
 
 
 PS: Currently there is a huge bug, maim program takes 200 milliseconds to take a screenshot. So, the -n argument is not consistent with the specification. In fact you can only make gifs with less than 5 frames per second.
+
+Need to find another application to take shots and implement a resampling function.
