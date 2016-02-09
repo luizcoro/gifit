@@ -106,6 +106,7 @@ shots_to_gif(){
 }
 
 get_window_geometry
+paplay ./race-countdown.ogg
 do_shots $WINDOW_GEOMETRY
 shots_to_gif
 
