@@ -3,14 +3,18 @@
 PNG_DIR=$(mktemp -d)
 DELAYS=()
 MODE=0
-SLEEP_TIME=0.066666666666
+GIF_SPEED=1
+SLEEP_TIME=0.0666
 WINDOW_GEOMETRY=0
 OPTIONAL_TMP_DIR=$(printenv GIFIT_TMP_DIR)
 OPTIONAL_GIF_DIR=$(printenv GIFIT_GIF_DIR)
-while getopts ":n:ws" opt; do
+while getopts ":n:v:ws" opt; do
   case $opt in
     n)
       SLEEP_TIME=$(echo "1/$OPTARG" | bc -l)
+      ;;
+    v)
+      GIF_SPEED=$OPTARG
       ;;
     w)
       MODE=1
@@ -77,12 +81,14 @@ shots_to_gif(){
     _CONVERT="${_CONVERT} -define registry:temporary-path=$OPTIONAL_TMP_DIR "
   fi
 
+
   count=0
 
   for f in $PNG_DIR/*
     do
-     _CONVERT="${_CONVERT} -delay ${DELAYS[$count]} $f "
-     (( count++ ))
+      delay=$(echo "${DELAYS[$count]}/$GIF_SPEED" | bc -l)
+      _CONVERT="${_CONVERT} -delay $delay $f "
+      (( count++ ))
     done
 
   new_gif=$PNG_DIR/out.gif

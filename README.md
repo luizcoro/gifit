@@ -7,12 +7,13 @@ Example:
 
 Arguments:
 
-
--n number = screenshot rate (default 15/s)
-
 -w = choose a specific window
 
 -s = select a specific area
+
+-n number = screenshot rate (default 15/s)
+
+-v number = gif speed factor (default 1)
 
 Environment variables:
 
