@@ -3,18 +3,22 @@
 PNG_DIR=$(mktemp -d)
 DELAYS=()
 MODE=0
-GIF_SPEED=1
+SPEED_FACTOR=1
+SCALE_FACTOR=1
 SLEEP_TIME=0.0666
 WINDOW_GEOMETRY=0
 OPTIONAL_TMP_DIR=$(printenv GIFIT_TMP_DIR)
 OPTIONAL_GIF_DIR=$(printenv GIFIT_GIF_DIR)
-while getopts ":n:v:ws" opt; do
+while getopts ":n:v:t:ws" opt; do
   case $opt in
     n)
       SLEEP_TIME=$(echo "1/$OPTARG" | bc -l)
       ;;
     v)
-      GIF_SPEED=$OPTARG
+      SPEED_FACTOR=$OPTARG
+      ;;
+    t)
+      SCALE_FACTOR=$OPTARG
       ;;
     w)
       MODE=1
@@ -74,6 +78,12 @@ do_shots(){
   echo -ne "\n\n"
 }
 
+scale_shots(){
+    echo "Scaling shots"
+
+    mogrify -scale "$(echo "$SCALE_FACTOR*100"| bc)%" $PNG_DIR/*
+}
+
 shots_to_gif(){
   _CONVERT="convert -limit memory 2GiB -limit map 4GiB "
 
@@ -86,7 +96,7 @@ shots_to_gif(){
 
   for f in $PNG_DIR/*
     do
-      delay=$(echo "${DELAYS[$count]}/$GIF_SPEED" | bc -l)
+      delay=$(echo "${DELAYS[$count]}/$SPEED_FACTOR" | bc -l)
       _CONVERT="${_CONVERT} -delay $delay $f "
       (( count++ ))
     done
@@ -114,6 +124,11 @@ shots_to_gif(){
 get_window_geometry
 paplay ./race-countdown.ogg
 do_shots $WINDOW_GEOMETRY
+
+if [ "$SCALE_FACTOR" != "1" ]; then
+    scale_shots
+fi
+
 shots_to_gif
 
 rm -rf $PNG_DIR

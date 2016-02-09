@@ -15,8 +15,10 @@ Arguments:
 
 -v number = gif speed factor (default 1)
 
-Environment variables:
+-t number = screenshot scale factor (default 1)
 
+
+Environment variables:
 
 GIFIT_TMP_DIR = temporary folder to convert screenshots into gif
 
