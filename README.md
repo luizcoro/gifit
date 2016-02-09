@@ -8,7 +8,7 @@ Example:
 Arguments:
 
 
--n number = screenshot rate (default 10/s)
+-n number = screenshot rate (default 15/s)
 
 -w = choose a specific window
 
