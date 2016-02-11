@@ -19,7 +19,7 @@ Simple shell script to make gif of your screen.
 
 * xrectsel to select a retangular area
 * yad to remove screenshots with a file selection dialog
-* screenkey to show pressed keys
+* screenkey 0.8 or later to show pressed keys
 
 ###Arguments:
 

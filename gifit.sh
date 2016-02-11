@@ -13,8 +13,26 @@ GIF_DIR=$([ $GIFIT_GIF_DIR ] && echo $GIFIT_GIF_DIR || echo ".")
 assert_commands_exist()
 {
     for command in $@; do
-        command -v $command >/dev/null 2>&1 || { echo >&2 "$command needs to be installed to enable this feature."; exit 1;rm -rf $TMP_DIR; }
+        command -v $command >/dev/null 2>&1 || { echo >&2 "$command needs to be installed to enable this feature.";rm -rf $TMP_DIR; exit 1; }
     done
+}
+
+##WHY SCREENKEY -V USES STDERR TO OUTPUTS VERSION
+assert_screenkey_version()
+{
+    if screenkey -v &> /dev/null; then
+        screenkey -v &> screenkey_version
+        screenkey_version=$(cat screenkey_version)
+        rm screenkey_version
+
+        if [ $(echo "$screenkey_version >= 0.8" | bc) == 1 ]; then
+            return
+        fi
+    fi
+
+    echo >&2 "screenkey needs to be version 0.8 or later."
+    rm -rf $TMP_DIR
+    exit 1
 }
 
 parse_args()
@@ -34,9 +52,12 @@ parse_args()
             MODE=1
             ;;
         s)
+            assert_commands_exist xrectsel
             MODE=2
             ;;
         k)
+            assert_commands_exist screenkey
+            assert_screenkey_version
             SCREENKEY_ENABLE=1
             ;;
         \?)
@@ -65,7 +86,6 @@ get_window_geometry()
                  -e "s/^ \+Height: \+\([0-9]\+\).*/h=\1/p" )
         WINDOW_GEOMETRY="$w""x$h+$x+$y"
     elif [ $MODE -eq 2 ]; then
-        assert_commands_exist xrectsel
         WINDOW_GEOMETRY=$(xrectsel)
     else
         WINDOW_GEOMETRY=$(xwininfo -root | grep 'geometry' | awk '{print $2;}')
@@ -78,29 +98,24 @@ do_shots()
 
     count=0
     keypress=''
-    last_date=$(date +%s%2N)
+    real_sleep=0
 
     while [[ "$keypress" != "q" ]]; do
-    scrot "$TMP_DIR/$(printf %05d $count).pnm"
 
-    echo -ne "Press [q] to stop recording\ttotal shots = $(($count+1))\r"
+        if [ $(echo "$real_sleep > 0" | bc) -eq 1 ]; then
+            sleep $real_sleep
+        fi
 
-    current_date=$(date +%s%2N)
-    DELAYS[$count]=$(($current_date-$last_date))
-    real_sleep=$(echo "scale=2;($SLEEP_TIME-(${DELAYS[$count]}/100))" | bc)
-    echo "count = $count, sleep = $SLEEP_TIME, sleeped = ${DELAYS[$count]}, real = $real_sleep" >> log
+        last_date=$(date +%s%N)
 
-    if [ $(echo "$real_sleep > 0" | bc) -eq 1 ]; then
-        echo "entered" >> log
-        sleep $real_sleep
-    else
-        echo "not entered" >> log
-    fi
+        scrot "$TMP_DIR/$(printf %05d $count).pnm"
+        echo -ne "Press [q] to stop recording\ttotal shots = $(($count+1))\r"
+        let count+=1
+        keypress="`cat -v`"
 
-    last_date=$(date +%s%2N)
+        current_date=$(date +%s%N)
 
-    let count+=1
-    keypress="`cat -v`"
+        real_sleep=$(echo "scale=9;($SLEEP_TIME-(($current_date-$last_date)/1000000000))" | bc)
     done
 
     if [ -t 0 ]; then stty sane; fi
