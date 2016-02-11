@@ -11,17 +11,17 @@ Simple shell script to make gif of your screen.
 ###Dependencies:
 
 * xwininfo to get window information
-* xrectsel to select a retangular area
 * scrot to take screenshots
 * graphicsmagick to image processing
 * gifsicle to gif optimization
 
+###Optional Dependencies:
+
+* xrectsel to select a retangular area
+* yad to remove screenshots with a file selection dialog
+* screenkey to show pressed keys
 
 ###Arguments:
-
--w = choose a specific window
-
--s = select a specific area
 
 -n number = screenshot rate (default 10/s)
 
@@ -29,9 +29,22 @@ Simple shell script to make gif of your screen.
 
 -t number = screenshot scale factor (default 1)
 
+-w = choose a specific window
+
+-s = select a specific area (xrectsel required)
+
+-k = show key pressed (screenkey required)
+
 
 ###Environment variables:
 
 GIFIT_TMP_DIR = temporary folder to convert screenshots into gif
 
 GIFIT_GIF_DIR = folder to save generated gif (default current directory)
+
+###Troubleshooting
+
+Q: When using -k argument the screenkey dialog doesnt have transparency. How could I fix this?
+
+A: Consider installing a composite manager like compton or xcompmgr if your window manager doesnt have it.
+

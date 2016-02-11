@@ -1,68 +1,86 @@
 #!/bin/bash
 
-DELAYS=()
 MODE=0
 SPEED_FACTOR=1
 SCALE_FACTOR=1
 SLEEP_TIME=0.1
 WINDOW_GEOMETRY=0
+SCREENKEY_ENABLE=0
+
 TMP_DIR=$([ $GIFIT_TMP_DIR ] && echo $(mktemp -d -p $GIFIT_TMP_DIR) || echo $(mktemp -d))
 GIF_DIR=$([ $GIFIT_GIF_DIR ] && echo $GIFIT_GIF_DIR || echo ".")
 
-while getopts ":n:v:t:ws" opt; do
-  case $opt in
-    n)
-      SLEEP_TIME=$(echo "1/$OPTARG" | bc -l)
-      ;;
-    v)
-      SPEED_FACTOR=$OPTARG
-      ;;
-    t)
-      SCALE_FACTOR=$OPTARG
-      ;;
-    w)
-      MODE=1
-      ;;
-    s)
-      MODE=2
-      ;;
-    \?)
-      echo "Invalid option: -$OPTARG" >&2
-      exit 1
-      ;;
-    :)
-      echo "Option -$OPTARG requires an argument." >&2
-      exit 1
-      ;;
-  esac
-done
-
-shift "$((OPTIND-1))"
-
-get_window_geometry(){
-  if [ $MODE -eq 1 ]; then
-    unset x y w h
-    eval $(xwininfo |
-      sed -n -e "s/^ \+Absolute upper-left X: \+\([0-9]\+\).*/x=\1/p" \
-             -e "s/^ \+Absolute upper-left Y: \+\([0-9]\+\).*/y=\1/p" \
-             -e "s/^ \+Width: \+\([0-9]\+\).*/w=\1/p" \
-             -e "s/^ \+Height: \+\([0-9]\+\).*/h=\1/p" )
-    WINDOW_GEOMETRY="$w""x$h+$x+$y"
-  elif [ $MODE -eq 2 ]; then
-    WINDOW_GEOMETRY=$(xrectsel)
-  else
-    WINDOW_GEOMETRY=$(xwininfo -root | grep 'geometry' | awk '{print $2;}')
-  fi
+assert_commands_exist()
+{
+    for command in $@; do
+        command -v $command >/dev/null 2>&1 || { echo >&2 "$command needs to be installed to enable this feature."; exit 1;rm -rf $TMP_DIR; }
+    done
 }
 
-do_shots(){
-  if [ -t 0 ]; then stty -echo -icanon -icrnl time 0 min 0; fi
+parse_args()
+{
+    while getopts ":n:v:t:wsk" opt; do
+        case $opt in
+        n)
+            SLEEP_TIME=$(echo "1/$OPTARG" | bc -l)
+            ;;
+        v)
+            SPEED_FACTOR=$OPTARG
+            ;;
+        t)
+            SCALE_FACTOR=$OPTARG
+            ;;
+        w)
+            MODE=1
+            ;;
+        s)
+            MODE=2
+            ;;
+        k)
+            SCREENKEY_ENABLE=1
+            ;;
+        \?)
+            echo "Invalid option: -$OPTARG" >&2
+            exit 1
+            ;;
+        :)
+            echo "Option -$OPTARG requires an argument." >&2
+            exit 1
+            ;;
+        esac
+    done
 
-  count=0
-  keypress=''
-  last_date=$(date +%s%2N)
+    shift "$((OPTIND-1))"
+}
 
-  while [[ "$keypress" != "q" ]]; do
+
+get_window_geometry()
+{
+    if [ $MODE -eq 1 ]; then
+        unset x y w h
+        eval $(xwininfo |
+          sed -n -e "s/^ \+Absolute upper-left X: \+\([0-9]\+\).*/x=\1/p" \
+                 -e "s/^ \+Absolute upper-left Y: \+\([0-9]\+\).*/y=\1/p" \
+                 -e "s/^ \+Width: \+\([0-9]\+\).*/w=\1/p" \
+                 -e "s/^ \+Height: \+\([0-9]\+\).*/h=\1/p" )
+        WINDOW_GEOMETRY="$w""x$h+$x+$y"
+    elif [ $MODE -eq 2 ]; then
+        assert_commands_exist xrectsel
+        WINDOW_GEOMETRY=$(xrectsel)
+    else
+        WINDOW_GEOMETRY=$(xwininfo -root | grep 'geometry' | awk '{print $2;}')
+    fi
+}
+
+do_shots()
+{
+    if [ -t 0 ]; then stty -echo -icanon -icrnl time 0 min 0; fi
+
+    count=0
+    keypress=''
+    last_date=$(date +%s%2N)
+
+    while [[ "$keypress" != "q" ]]; do
     scrot "$TMP_DIR/$(printf %05d $count).pnm"
 
     echo -ne "Press [q] to stop recording\ttotal shots = $(($count+1))\r"
@@ -83,10 +101,10 @@ do_shots(){
 
     let count+=1
     keypress="`cat -v`"
-  done
+    done
 
-  if [ -t 0 ]; then stty sane; fi
-  echo -ne "\n\n"
+    if [ -t 0 ]; then stty sane; fi
+    echo -ne "\n\n"
 }
 
 scale_shots(){
@@ -94,64 +112,64 @@ scale_shots(){
     gm mogrify -scale "$(echo "$SCALE_FACTOR*100"| bc)%" "$TMP_DIR/*"
 }
 
-get_index_from_file()
-{
-    file=$1
-    filename=${file##*/}
-    index=$((10#${filename%.*}))
-
-    echo $index
-}
-
 remove_shots()
 {
-    files=$(yad  --title="Select a file to remove" --add-preview --multiple --image-filter --splash --filename="$TMP_DIR/" --file-selection)
-
-    IFS='|' read -ra IMGS <<< "$files"
-
-    for img in "${IMGS[@]}"; do
-        rm $img
-    done
+    assert_commands_exist yad
+    rm $(yad  --title="Select a file to remove" --add-preview --multiple --image-filter --splash --filename="$TMP_DIR/" --separator=" " --file-selection)
 }
 
-shots_to_gif(){
+shots_to_gif()
+{
+    echo "Making gif..."
 
-  echo "Making gif..."
-
-  if [ $MODE -ne 0 ]; then
+    if [ $MODE -ne 0 ]; then
     gm mogrify -crop $WINDOW_GEOMETRY\! $TMP_DIR/*.pnm
-  fi
+    fi
 
-  gm convert +dither -colorspace YUV -colors 63 -fuzz 10% -delay $(echo "100*$SLEEP_TIME/$SPEED_FACTOR" | bc -l) $TMP_DIR/*.pnm $TMP_DIR/out.gif
+    gm convert +dither -colorspace YUV -colors 63 -fuzz 10% -delay $(echo "100*$SLEEP_TIME/$SPEED_FACTOR" | bc -l) $TMP_DIR/*.pnm $TMP_DIR/out.gif
 
-  if [ "$?" -ne "0" ]; then
+    if [ "$?" -ne "0" ]; then
     echo "Gif failed. Try to set the variable GIFIT_TMP_DIR in your ~/.bashrc. Choose a temporary folder with alot of space!"
     exit 1
-  fi
+    fi
 
-  echo "Optimizing..."
-  gifsicle -O3 --method blend-diversity --colors 63  $TMP_DIR/out.gif -o $GIF_DIR/$(date +%F-%T).gif
+    echo "Optimizing..."
+    gifsicle -O3 --method blend-diversity --colors 63  $TMP_DIR/out.gif -o $GIF_DIR/$(date +%F-%T).gif
 
-  echo "Gif OK!"
+    echo "Gif OK!"
 }
 
-get_window_geometry
-paplay ./race-countdown.ogg
-do_shots
+main ()
+{
+    assert_commands_exist xwininfo scrot gm gifsicle
 
-echo "Do you wanna remove some shots? (Y/n)"
-read remove
+    parse_args $@
+    get_window_geometry
 
-if [ "$remove" != "n" ]; then
-    remove_shots
-fi
+    paplay ./race-countdown.ogg
 
-if [ "$SCALE_FACTOR" != "1" ]; then
-    scale_shots
-fi
+    if [ "$SCREENKEY_ENABLE" == 1 ]; then
+        screenkey -t 1 -s small -g $WINDOW_GEOMETRY --opacity 0.7; do_shots; killall screenkey
+    else
+        do_shots
+    fi
 
-shots_to_gif
+    echo "Do you wanna remove some shots? (Y/n)"
+    read remove
 
-rm -rf $TMP_DIR
+    if [ "$remove" != "n" ]; then
+        remove_shots
+    fi
 
-echo "Thanks for using this script."
+    if [ "$SCALE_FACTOR" != "1" ]; then
+        scale_shots
+    fi
+
+    shots_to_gif
+
+    rm -rf $TMP_DIR
+
+    echo "Thanks for using this script."
+}
+
+main $@
