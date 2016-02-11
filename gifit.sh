@@ -17,7 +17,7 @@ assert_commands_exist()
     done
 }
 
-##WHY SCREENKEY -V USES STDERR TO OUTPUTS VERSION
+##WHY DOES THE SCREENKEY -V COMMAND USE STDERR TO OUTPUT VERSION
 assert_screenkey_version()
 {
     if screenkey -v &> /dev/null; then
