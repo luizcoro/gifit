@@ -35,17 +35,29 @@ assert_screenkey_version()
     exit 1
 }
 
+assert_parameter_between()
+{
+    if [ $(echo "$2 <= $1 && $1 <= $3" | bc) == 0 ]; then
+        echo >&2 "Parameter $4 needs to be between $2 and $3."
+        rm -rf $TMP_DIR
+        exit 1
+    fi
+}
+
 parse_args()
 {
     while getopts ":n:v:t:wsk" opt; do
         case $opt in
         n)
+            assert_parameter_between $OPTARG 1 30 "-n"
             SLEEP_TIME=$(echo "1/$OPTARG" | bc -l)
             ;;
         v)
+            assert_parameter_between $OPTARG 0.1  4 "-v"
             SPEED_FACTOR=$OPTARG
             ;;
         t)
+            assert_parameter_between $OPTARG 0.1  4 "-t"
             SCALE_FACTOR=$OPTARG
             ;;
         w)

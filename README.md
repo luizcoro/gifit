@@ -23,11 +23,11 @@ Simple shell script to make gif of your screen.
 
 ###Arguments:
 
--n number = screenshot rate (default 10/s)
+-n number = screenshot rate - 1-30 (default 10/s)
 
--v number = gif speed factor (default 1)
+-v number = gif speed factor - 0.1-4 (default 1)
 
--t number = screenshot scale factor (default 1)
+-t number = screenshot scale factor - 0.1-4 (default 1)
 
 -w = choose a specific window
 
