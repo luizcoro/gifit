@@ -45,7 +45,7 @@ GIFIT_GIF_DIR = folder to save generated gif (default current directory)
 
 ###Troubleshooting
 
-Q: When using -k argument the screenkey dialog doesnt have transparency. How could I fix this?
+Q: When using -k argument the screenkey dialog doesn't have transparency. How could I fix this?
 
-A: Consider installing a composite manager like compton or xcompmgr if your window manager doesnt have it.
+A: Consider installing a composite manager like compton or xcompmgr if your window manager doesn't have it.
 
