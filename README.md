@@ -24,11 +24,11 @@ example command: gifit -t 0.8 -w -k
 
 ###Arguments:
 
--n number = screenshot rate - 1-30 (default 10/s)
+-n number = set screenshot rate - 1-30 (default 10/s)
 
--v number = gif speed factor - 0.1-4 (default 1)
+-v number = set gif speed factor - 0.1-4 (default 1)
 
--t number = screenshot scale factor - 0.1-4 (default 1)
+-t number = set screenshot scale factor - 0.1-4 (default 1)
 
 -w = choose a specific window
 
