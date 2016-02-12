@@ -5,8 +5,9 @@ Simple shell script to make gif of your screen.
 
 ###Example:
 
-![alt tag](http://s24.postimg.org/h6dln48j9/2015_12_23_03_21_53_gif.gif)
+![alt tag](http://s6.postimg.org/g69y6lt3l/2016_02_11_23_46_06.gif)
 
+example command: gifit -t 0.8 -w -k
 
 ###Dependencies:
 

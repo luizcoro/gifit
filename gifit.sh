@@ -134,7 +134,14 @@ do_shots()
     echo -ne "\n\n"
 }
 
-scale_shots(){
+crop_shots()
+{
+    echo "Croping..."
+    gm mogrify -crop $WINDOW_GEOMETRY\! $TMP_DIR/*.pnm
+}
+
+scale_shots()
+{
     echo "Scaling..."
     gm mogrify -scale "$(echo "$SCALE_FACTOR*100"| bc)%" "$TMP_DIR/*"
 }
@@ -142,16 +149,12 @@ scale_shots(){
 remove_shots()
 {
     assert_commands_exist yad
-    rm $(yad  --title="Select a file to remove" --add-preview --multiple --image-filter --splash --filename="$TMP_DIR/" --separator=" " --file-selection)
+    rm $(yad  --title="Select a file to remove" --add-preview --multiple --image-filter --splash --filename="$TMP_DIR/" --separator=" " --file-selection 2> /dev/null)
 }
 
 shots_to_gif()
 {
     echo "Making gif..."
-
-    if [ $MODE -ne 0 ]; then
-    gm mogrify -crop $WINDOW_GEOMETRY\! $TMP_DIR/*.pnm
-    fi
 
     gm convert +dither -colorspace YUV -colors 63 -fuzz 10% -delay $(echo "100*$SLEEP_TIME/$SPEED_FACTOR" | bc -l) $TMP_DIR/*.pnm $TMP_DIR/out.gif
 
@@ -179,6 +182,10 @@ main ()
         screenkey -t 1 -s small -g $WINDOW_GEOMETRY --opacity 0.7; do_shots; killall screenkey
     else
         do_shots
+    fi
+
+    if [ $MODE -ne 0 ]; then
+        crop_shots
     fi
 
     echo "Do you wanna remove some shots? (Y/n)"
