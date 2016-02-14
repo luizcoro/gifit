@@ -10,6 +10,10 @@ SCREENKEY_ENABLE=0
 TMP_DIR=$([ $GIFIT_TMP_DIR ] && echo $(mktemp -d -p $GIFIT_TMP_DIR) || echo $(mktemp -d))
 GIF_DIR=$([ $GIFIT_GIF_DIR ] && echo $GIFIT_GIF_DIR || echo ".")
 
+FIFO=$(mktemp -p $TMP_DIR)
+
+trap "rm -rf $TMP_DIR; killall gifitgetinput" EXIT
+
 assert_commands_exist()
 {
     for command in $@; do
@@ -104,6 +108,7 @@ get_window_geometry()
     fi
 }
 
+
 do_shots()
 {
     if [ -t 0 ]; then stty -echo -icanon -icrnl time 0 min 0; fi
@@ -111,6 +116,8 @@ do_shots()
     count=0
     keypress=''
     real_sleep=0
+
+    ./gifitgetinput $FIFO &
 
     while [[ "$keypress" != "q" ]]; do
 
@@ -124,6 +131,14 @@ do_shots()
         echo -ne "Press [q] to stop recording\ttotal shots = $(($count+1))\r"
         let count+=1
         keypress="`cat -v`"
+
+        fifo_entry=$(cat $FIFO)
+
+        if [ $fifo_entry ]; then
+            keypress=$fifo_entry
+            echo $keypress
+            echo "" > $fifo_entry
+        fi
 
         current_date=$(date +%s%N)
 

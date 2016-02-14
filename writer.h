@@ -1,6 +1,6 @@
 typedef struct
 {
-    char filename[20];
+    char filename[100];
     char str[20];
 } PthreadArgs;
 

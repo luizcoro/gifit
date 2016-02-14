@@ -20,7 +20,6 @@ void* append_to_file(void *pargs)
         exit(1);
     }
 
-    printf("%s\n", args.str);
     fprintf(f, "%s\n", args.str);
 
     fclose(f);
