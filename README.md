@@ -38,8 +38,10 @@ example command: gifit -t 0.8 -w -k
 
 ###Global Commands
 
-Ctrl+q : stop screenshot collection (same as 'q' in terminal)
-Ctrl+mouse1 : zoom in/zoom out while taking screenshots (not implemented yet)
+Ctrl+q = stop screenshot collection (same as 'q' in terminal)
+
+Ctrl+mouse1 = zoom in/zoom out while taking screenshots (not implemented yet)
+
 
 ###Environment variables:
 
