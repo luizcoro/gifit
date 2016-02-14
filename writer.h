@@ -1,7 +1,7 @@
 typedef struct
 {
-    char *filename;
-    char *str;
+    char filename[20];
+    char str[20];
 } PthreadArgs;
 
 void* append_to_file(void *pargs);

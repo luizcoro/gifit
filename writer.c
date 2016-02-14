@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <string.h>
 
 #include "writer.h"
 
@@ -25,6 +26,8 @@ void* append_to_file(void *pargs)
     fclose(f);
 
     free((PthreadArgs*) pargs);
+
+    return NULL;
 }
 
 void create_writer_thread(char *filename, char *str)
@@ -32,10 +35,11 @@ void create_writer_thread(char *filename, char *str)
     pthread_t thread;
 
     PthreadArgs *pargs = (PthreadArgs*) malloc(sizeof(PthreadArgs));
-    pargs->filename = filename;
-    pargs->str = str;
 
-    pthread_create(&thread, 0, append_to_file, (void*) pargs);
+    strcpy(pargs->filename, filename);
+    strcpy(pargs->str, str);
+
+    pthread_create(&thread, NULL, append_to_file, (void*) pargs);
 }
 
 void create_exit_writer_thread(char *filename)
@@ -46,8 +50,7 @@ void create_exit_writer_thread(char *filename)
 void create_zoom_writer_thread(char *filename, int x, int y)
 {
     char str[20];
-
-    sprintf(str, "zi:%d,%d\0", x, y);
+    sprintf(str, "zi:%d,%d", x, y);
 
     create_writer_thread(filename, str);
 }
