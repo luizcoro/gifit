@@ -5,19 +5,37 @@ SPEED_FACTOR=1
 SCALE_FACTOR=1
 SLEEP_TIME=0.1
 WINDOW_GEOMETRY=0
+PARSED_WINDOW_GEOMETRY=0
 SCREENKEY_ENABLE=0
+ZOOM=2
+
+COUNTDOWN_SOUND="sounds/race-countdown.ogg"
+ZOOM_IN_SOUND="sounds/zoom_in.ogg"
+ZOOM_OUT_SOUND="sounds/zoom_out.ogg"
+
+GIFIT_GET_INPUT="gifitgetinput/gifitgetinput"
+
+GEOMETRIES=()
 
 TMP_DIR=$([ $GIFIT_TMP_DIR ] && echo $(mktemp -d -p $GIFIT_TMP_DIR) || echo $(mktemp -d))
 GIF_DIR=$([ $GIFIT_GIF_DIR ] && echo $GIFIT_GIF_DIR || echo ".")
 
 FIFO=$(mktemp -p $TMP_DIR)
 
-trap "rm -rf $TMP_DIR; killall gifitgetinput" EXIT
+trap 'killall' EXIT
+
+killall()
+{
+    rm -rf $TMP_DIR
+    trap '' INT TERM     # ignore INT and TERM while shutting down
+    kill -TERM 0         # fixed order, send TERM not INT
+    wait
+}
 
 assert_commands_exist()
 {
     for command in $@; do
-        command -v $command >/dev/null 2>&1 || { echo >&2 "$command needs to be installed to enable this feature.";rm -rf $TMP_DIR; exit 1; }
+        command -v $command >/dev/null 2>&1 || { echo >&2 "$command needs to be installed to enable this feature."; exit 1; }
     done
 }
 
@@ -35,7 +53,6 @@ assert_screenkey_version()
     fi
 
     echo >&2 "screenkey needs to be version 0.8 or later."
-    rm -rf $TMP_DIR
     exit 1
 }
 
@@ -43,7 +60,6 @@ assert_parameter_between()
 {
     if [ $(echo "$2 <= $1 && $1 <= $3" | bc) == 0 ]; then
         echo >&2 "Parameter $4 needs to be between $2 and $3."
-        rm -rf $TMP_DIR
         exit 1
     fi
 }
@@ -90,6 +106,15 @@ parse_args()
     shift "$((OPTIND-1))"
 }
 
+parse_geometry()
+{
+    g=$1
+
+    wxh=${g%%+*}
+    xy=${g#*+}
+
+    echo ${xy/+/ } ${wxh/x/ }
+}
 
 get_window_geometry()
 {
@@ -106,8 +131,28 @@ get_window_geometry()
     else
         WINDOW_GEOMETRY=$(xwininfo -root | grep 'geometry' | awk '{print $2;}')
     fi
+
+    PARSED_WINDOW_GEOMETRY=$(parse_geometry $WINDOW_GEOMETRY)
 }
 
+get_zoom_geometry()
+{
+    fw=$(($3 / $ZOOM))
+    fh=$(($4 / $ZOOM))
+
+    fx=$(($5 - ($fw/2)))
+    fy=$(($6 - ($fh/2)))
+
+    if [[ $fx -lt $1 ]]; then
+        fx=$1
+    fi
+
+    if [[ $fy -lt $2 ]]; then
+        fx=$2
+    fi
+
+    echo "$fw""x$fh+$fx+$fy"
+}
 
 do_shots()
 {
@@ -117,7 +162,10 @@ do_shots()
     keypress=''
     real_sleep=0
 
-    ./gifitgetinput $FIFO &
+    zoomed=0
+    current_geometry=$WINDOW_GEOMETRY
+
+    $GIFIT_GET_INPUT $FIFO &
 
     while [[ "$keypress" != "q" ]]; do
 
@@ -128,16 +176,31 @@ do_shots()
         last_date=$(date +%s%N)
 
         scrot "$TMP_DIR/$(printf %05d $count).pnm"
+        GEOMETRIES[$count]=$current_geometry
+
         echo -ne "Press [q] to stop recording\ttotal shots = $(($count+1))\r"
         let count+=1
         keypress="`cat -v`"
 
         fifo_entry=$(cat $FIFO)
 
-        if [ $fifo_entry ]; then
-            keypress=$fifo_entry
-            echo $keypress
-            echo "" > $fifo_entry
+        if [[ ! -z $fifo_entry ]]; then
+
+            if [ "$fifo_entry" == "q" ]; then
+                keypress=$fifo_entry
+            else
+                if [ $zoomed == 0 ]; then
+                    current_geometry=$(get_zoom_geometry $PARSED_WINDOW_GEOMETRY $fifo_entry)
+                    paplay $ZOOM_IN_SOUND &
+                    zoomed=1
+                else
+                    current_geometry=$WINDOW_GEOMETRY
+                    paplay $ZOOM_OUT_SOUND &
+                    zoomed=0
+                fi
+            fi
+
+            > $FIFO
         fi
 
         current_date=$(date +%s%N)
@@ -149,10 +212,29 @@ do_shots()
     echo -ne "\n\n"
 }
 
-crop_shots()
+get_file_id()
+{
+    f=$1
+    filename=${f##*/}
+    echo $((10#${filename%.*}))
+}
+
+
+crop_shots_if_needed()
 {
     echo "Croping..."
-    gm mogrify -crop $WINDOW_GEOMETRY\! $TMP_DIR/*.pnm
+
+    if [ $MODE -ne 0 ]; then
+        gm mogrify -crop $WINDOW_GEOMETRY\! $TMP_DIR/*.pnm
+    fi
+
+    for file in $TMP_DIR/*.pnm; do
+        id=$(get_file_id $file)
+
+        if [ $WINDOW_GEOMETRY != ${GEOMETRIES[$id]} ]; then
+            gm mogrify -crop ${GEOMETRIES[$id]}\! -resize $(($ZOOM * 100))% $file
+        fi
+    done
 }
 
 scale_shots()
@@ -164,7 +246,11 @@ scale_shots()
 remove_shots()
 {
     assert_commands_exist yad
-    rm $(yad  --title="Select a file to remove" --add-preview --multiple --image-filter --splash --filename="$TMP_DIR/" --separator=" " --file-selection 2> /dev/null)
+    files=$(yad  --title="Select a file to remove" --add-preview --multiple --image-filter --splash --filename="$TMP_DIR/" --separator=" " --file-selection 2> /dev/null)
+
+    if [[ ! -z $files ]]; then
+        rm $files
+    fi
 }
 
 shots_to_gif()
@@ -191,7 +277,7 @@ main ()
     parse_args $@
     get_window_geometry
 
-    paplay ./race-countdown.ogg
+    paplay $COUNTDOWN_SOUND
 
     if [ "$SCREENKEY_ENABLE" == 1 ]; then
         screenkey -t 1 -s small -g $WINDOW_GEOMETRY --opacity 0.7; do_shots; killall screenkey
@@ -199,14 +285,14 @@ main ()
         do_shots
     fi
 
-    if [ $MODE -ne 0 ]; then
-        crop_shots
-    fi
+    crop_shots_if_needed
 
-    echo "Do you wanna remove some shots? (Y/n)"
-    read remove
+    echo "Do you wanna remove some shots? (y/N)"
+    read -n 1 remove
 
-    if [ "$remove" != "n" ]; then
+    echo ""
+
+    if [[ $remove == "y" || $remove == "Y" ]]; then
         remove_shots
     fi
 
@@ -215,8 +301,6 @@ main ()
     fi
 
     shots_to_gif
-
-    rm -rf $TMP_DIR
 
     echo "Thanks for using this script."
 }
