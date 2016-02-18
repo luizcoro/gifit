@@ -7,7 +7,9 @@ SLEEP_TIME=0.1
 WINDOW_GEOMETRY=0
 PARSED_WINDOW_GEOMETRY=0
 SCREENKEY_ENABLE=0
+
 ZOOM=2
+ZOOM_SPEED=3
 
 COUNTDOWN_SOUND="sounds/race-countdown.ogg"
 ZOOM_IN_SOUND="sounds/zoom_in.ogg"
@@ -135,7 +137,7 @@ get_window_geometry()
     PARSED_WINDOW_GEOMETRY=$(parse_geometry $WINDOW_GEOMETRY)
 }
 
-get_zoom_geometry()
+get_final_zoom_geometry()
 {
     fw=$(($3 / $ZOOM))
     fh=$(($4 / $ZOOM))
@@ -151,7 +153,40 @@ get_zoom_geometry()
         fx=$2
     fi
 
-    echo "$fw""x$fh+$fx+$fy"
+    printf "%.0fx%.0f+%.0f+%.0f" $fw $fh $fx $fy
+}
+
+
+
+get_zoom_interpolation_needed()
+{
+    if [ $3 -lt $7 ]; then
+        echo $(echo "scale=9;($7/$3)-1" | bc)
+    else
+        echo $(echo "scale=9;($3/$7)-1" | bc)
+    fi
+}
+
+get_interpolated_zoom_towards()
+{
+    fx=$(echo "(($5 - $1) * $SLEEP_TIME * $ZOOM_SPEED) + $1" | bc)
+    fy=$(echo "(($6 - $2) * $SLEEP_TIME * $ZOOM_SPEED) + $2" | bc)
+    fw=$(echo "(($7 - $3) * $SLEEP_TIME * $ZOOM_SPEED) + $3" | bc)
+    fh=$(echo "(($8 - $4) * $SLEEP_TIME * $ZOOM_SPEED) + $4" | bc)
+
+    printf "%.0fx%.0f+%.0f+%.0f" $fw $fh $fx $fy
+}
+
+get_zoom_towards()
+{
+    g1=$(parse_geometry $1)
+    g2=$(parse_geometry $2)
+
+    # if [ $(echo "$(get_zoom_interpolation_needed $g1 $g2) < 0.01" | bc) == 1 ]; then
+    #     echo $2
+    # else
+        echo $(get_interpolated_zoom_towards $g1 $g2)
+    # fi
 }
 
 do_shots()
@@ -163,7 +198,9 @@ do_shots()
     real_sleep=0
 
     zoomed=0
+
     current_geometry=$WINDOW_GEOMETRY
+    target_geometry=$WINDOW_GEOMETRY
 
     $GIFIT_GET_INPUT $FIFO &
 
@@ -182,7 +219,7 @@ do_shots()
         let count+=1
         keypress="`cat -v`"
 
-        fifo_entry=$(cat $FIFO)
+        fifo_entry=$(head -1 $FIFO)
 
         if [[ ! -z $fifo_entry ]]; then
 
@@ -190,11 +227,11 @@ do_shots()
                 keypress=$fifo_entry
             else
                 if [ $zoomed == 0 ]; then
-                    current_geometry=$(get_zoom_geometry $PARSED_WINDOW_GEOMETRY $fifo_entry)
+                    target_geometry=$(get_final_zoom_geometry $PARSED_WINDOW_GEOMETRY $fifo_entry)
                     paplay $ZOOM_IN_SOUND &
                     zoomed=1
                 else
-                    current_geometry=$WINDOW_GEOMETRY
+                    target_geometry=$WINDOW_GEOMETRY
                     paplay $ZOOM_OUT_SOUND &
                     zoomed=0
                 fi
@@ -203,6 +240,8 @@ do_shots()
             > $FIFO
         fi
 
+        current_geometry=$(get_zoom_towards $current_geometry $target_geometry)
+        echo $current_geometry
         current_date=$(date +%s%N)
 
         real_sleep=$(echo "scale=9;($SLEEP_TIME-(($current_date-$last_date)/1000000000))" | bc)
@@ -228,11 +267,13 @@ crop_shots_if_needed()
         gm mogrify -crop $WINDOW_GEOMETRY\! $TMP_DIR/*.pnm
     fi
 
+    wxh=${WINDOW_GEOMETRY%%+*}
+
     for file in $TMP_DIR/*.pnm; do
         id=$(get_file_id $file)
 
         if [ $WINDOW_GEOMETRY != ${GEOMETRIES[$id]} ]; then
-            gm mogrify -crop ${GEOMETRIES[$id]}\! -resize $(($ZOOM * 100))% $file
+            gm mogrify -crop ${GEOMETRIES[$id]}\! -resize $wxh\! $file
         fi
     done
 }
