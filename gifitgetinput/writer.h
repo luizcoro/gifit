@@ -1,3 +1,10 @@
+#ifndef WRITER_H_
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <pthread.h>
+#include <string.h>
+
 typedef struct
 {
     char filename[100];
@@ -12,3 +19,4 @@ void create_exit_writer_thread(char *filename);
 
 void create_zoom_writer_thread(char *filename, int x, int y);
 
+#endif

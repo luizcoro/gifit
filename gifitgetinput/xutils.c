@@ -1,17 +1,17 @@
-#ifndef XUTILS_H_
-
-#include <X11/Xutil.h>
-#include <stdio.h>
-
 #include "xutils.h"
-#include "writer.h"
-
-#endif
+#include "systemutils.h"
 
 X11Data create_default_x11data()
 {
+    /* XInitThreads(); */
+
     X11Data x11data;
     x11data.display = XOpenDisplay(NULL);
+    x11data.screen = ScreenOfDisplay(x11data.display, DefaultScreen(x11data.display));
+    x11data.visual = DefaultVisual(x11data.display, XScreenNumberOfScreen(x11data.screen));
+    x11data.colormap = DefaultColormap(x11data.display, XScreenNumberOfScreen(x11data.screen));
+
+    x11data.root_window = XDefaultRootWindow(x11data.display);
     x11data.window = None;
 
     return x11data;
@@ -75,7 +75,7 @@ int handle_focus(X11Data *x11data)
     }
 }
 
-int handle_event(X11Data* x11data, char *filename)
+int handle_event(X11Data* x11data, CommandQueue *queue)
 {
     XEvent ev;
     XNextEvent(x11data->display, &ev);
@@ -89,12 +89,21 @@ int handle_event(X11Data* x11data, char *filename)
         }
         case KeyPress:
         {
-            create_exit_writer_thread(filename);
+            Command command;
+            strcpy(command.message, "q");
+
+            enqueue(queue, command);
             break;
         }
         case ButtonPress:
         {
-            create_zoom_writer_thread(filename, ev.xbutton.x,  ev.xbutton.y);
+            char str[20];
+            sprintf(str, "%d %d", ev.xbutton.x, ev.xbutton.y);
+
+            Command command;
+            strcpy(command.message, str);
+
+            enqueue(queue, command);
             break;
         }
 

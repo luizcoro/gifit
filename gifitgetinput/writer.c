@@ -1,13 +1,4 @@
-#ifndef WRITER_H_
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <pthread.h>
-#include <string.h>
-
 #include "writer.h"
-
-#endif
 
 void* append_to_file(void *pargs)
 {
